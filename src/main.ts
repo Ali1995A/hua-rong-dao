@@ -8,7 +8,6 @@ import {
   generatePuzzle,
   findShortestSolution,
   getPossibleDirs,
-  getPossibleMoves,
   isSolved,
   tryApplyMove,
   type Block,
@@ -374,6 +373,7 @@ function main(): void {
     }
   }
   let rotateDismissed = false
+  let hinting = false
 
   const blockEls = new Map<BlockId, HTMLDivElement>()
   let cell = 80
@@ -499,29 +499,61 @@ function main(): void {
     persistIfNeeded(state)
   }
 
-  function runHint(): void {
-    if (state.celebrating) return
-    const solution = findShortestSolution(state.blocks, { maxNodes: 22000, maxDepth: 90 })
-    const next = solution && solution.length > 0 ? solution[0] : null
-    const fallback = getPossibleMoves(state.blocks).find((m) => m.id === 'cc') ?? getPossibleMoves(state.blocks)[0]
-    const move = next ?? fallback
-    if (!move) return
-
-    hideHintArrow(refs)
-    for (const el of blockEls.values()) el.classList.remove('block-hint')
-
-    const el = blockEls.get(move.id)
-    if (el) el.classList.add('block-hint')
-    showHintArrow(refs, move, cell, gx, gy, state.blocks)
-    window.setTimeout(() => {
-      for (const el of blockEls.values()) el.classList.remove('block-hint')
-      hideHintArrow(refs)
-    }, 1400)
+  function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => window.setTimeout(resolve, ms))
   }
 
-  refs.btnKaishi.addEventListener('click', () => void ensureAudio().then(newPuzzle))
-  refs.btnChongzhi.addEventListener('click', () => void ensureAudio().then(resetPuzzle))
-  refs.btnTishi.addEventListener('click', () => void ensureAudio().then(runHint))
+  async function runHint(): Promise<void> {
+    if (state.celebrating || hinting) return
+    const solution = findShortestSolution(state.blocks, { maxNodes: 120000, maxDepth: 260 })
+    if (!solution || solution.length === 0) return
+
+    const steps = solution.slice(0, Math.min(3, solution.length))
+    if (steps.length === 0) return
+
+    hinting = true
+    try {
+      for (const move of steps) {
+        if (state.celebrating) break
+        hideHintArrow(refs)
+        for (const el of blockEls.values()) el.classList.remove('block-hint')
+
+        const el = blockEls.get(move.id)
+        if (el) el.classList.add('block-hint')
+        showHintArrow(refs, move, cell, gx, gy, state.blocks)
+
+        await sleep(520)
+        hideHintArrow(refs)
+
+        const ok = tryApplyMove(state.blocks, move)
+        if (ok) {
+          state.moves += 1
+          playMoveTick()
+          afterMove()
+        }
+
+        await sleep(170)
+        if (isSolved(state.blocks)) break
+      }
+    } finally {
+      hideHintArrow(refs)
+      for (const el of blockEls.values()) el.classList.remove('block-hint')
+      hinting = false
+    }
+  }
+
+  refs.btnKaishi.addEventListener('click', () => {
+    if (hinting) return
+    void ensureAudio().then(newPuzzle)
+  })
+  refs.btnChongzhi.addEventListener('click', () => {
+    if (hinting) return
+    void ensureAudio().then(resetPuzzle)
+  })
+  refs.btnTishi.addEventListener('click', () => {
+    if (hinting) return
+    void ensureAudio().then(() => runHint())
+  })
   refs.btnNanduDown.addEventListener('click', () => void ensureAudio().then(() => setDifficulty(state.difficulty - 1)))
   refs.btnNanduUp.addEventListener('click', () => void ensureAudio().then(() => setDifficulty(state.difficulty + 1)))
   refs.btnJizhu.addEventListener('click', () => void ensureAudio().then(() => setRemember(!state.remember)))
@@ -558,6 +590,7 @@ function main(): void {
   }
 
   function startDrag(id: BlockId, pointerId: number, clientX: number, clientY: number) {
+    if (hinting) return
     if (state.celebrating) return
     const el = blockEls.get(id)
     if (!el) return
@@ -634,7 +667,7 @@ function main(): void {
           afterMove()
         }
       } else {
-        runHint()
+        void runHint()
       }
     }
 
@@ -645,6 +678,7 @@ function main(): void {
 
   if (supportsPointer) {
     refs.board.addEventListener('pointerdown', (e) => {
+      if (hinting) return
       const id = getBlockIdFromTarget(e.target)
       if (!id) return
       if (state.celebrating) return
@@ -682,6 +716,7 @@ function main(): void {
     refs.board.addEventListener(
       'touchstart',
       (e) => {
+        if (hinting) return
         if (state.celebrating) return
         const t = e.changedTouches[0]
         if (!t) return
