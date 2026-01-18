@@ -282,6 +282,24 @@ function persistIfNeeded(state: AppState): void {
 function loadInitialState(): AppState {
   const saved = loadState()
   if (saved && saved.remember && Array.isArray(saved.blocks) && saved.blocks.length === 10) {
+    if (isSolved(saved.blocks)) {
+      const seed = newSeed()
+      const difficulty = clampDifficulty(saved.difficulty)
+      const gameIndex = Math.max(0, Math.floor(saved.gameIndex))
+      const { blocks } = generatePuzzle({ difficulty, gameIndex, seed })
+      return {
+        difficulty,
+        remember: true,
+        gameIndex,
+        seed,
+        startedAt: Date.now(),
+        moves: 0,
+        blocks,
+        startKey: blocksToKey(blocks),
+        celebrating: false,
+      }
+    }
+
     const { blocks: initialBlocks } = generatePuzzle({
       difficulty: clampDifficulty(saved.difficulty),
       gameIndex: Math.max(0, Math.floor(saved.gameIndex)),
