@@ -123,11 +123,11 @@ function createLayout(app: HTMLElement): UiRefs {
         </div>
       </div>
 
-      <div id="rotateOverlay" class="overlay overlay-rotate hidden" role="dialog" aria-label="rotate">
+          <div id="rotateOverlay" class="overlay overlay-rotate hidden" role="dialog" aria-label="rotate">
         <div class="overlay-card">
           <div class="overlay-big">↻</div>
           <div class="overlay-sub">qing heng ping</div>
-          <button id="btnTiaoguoRotate" class="btn btn-small btn-ghost" type="button">tiaoguo</button>
+          <button id="btnTiaoguoRotate" class="btn btn-small btn-ghost" type="button">tiao guo</button>
         </div>
       </div>
 

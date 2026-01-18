@@ -97,6 +97,20 @@ function oppositeDir(dir: Direction): Direction {
   }
 }
 
+function desiredSolutionRange(difficulty: number, gameIndex: number): { min: number; max: number } {
+  const d = Math.min(5, Math.max(1, Math.floor(difficulty)))
+  const g = Math.max(0, Math.floor(gameIndex))
+  if (d === 1) {
+    const min = 4 + Math.min(2, g)
+    const max = 8 + Math.min(4, g)
+    return { min, max }
+  }
+  if (d === 2) return { min: 10, max: 18 }
+  if (d === 3) return { min: 18, max: 30 }
+  if (d === 4) return { min: 28, max: 44 }
+  return { min: 40, max: 70 }
+}
+
 function canMove(block: Block, dir: Direction, grid: (BlockId | null)[][]): boolean {
   if (dir === 'left') {
     if (block.x === 0) return false
@@ -181,9 +195,9 @@ function pickOne<T>(items: T[], rnd: () => number): T {
 
 function shuffleStepsForDifficulty(difficulty: number, gameIndex: number): number {
   const clamped = Math.min(5, Math.max(1, Math.floor(difficulty)))
-  if (clamped === 1) return 1 + Math.min(2, Math.max(0, gameIndex))
-  const base = [0, 10, 22, 36, 54][clamped - 1]!
-  const extra = Math.min(60, Math.max(0, gameIndex) * 3)
+  if (clamped === 1) return 18 + Math.min(10, Math.max(0, gameIndex) * 2)
+  const base = [0, 26, 44, 62, 86][clamped - 1]!
+  const extra = Math.min(70, Math.max(0, gameIndex) * 3)
   return base + extra
 }
 
@@ -194,37 +208,57 @@ export function generatePuzzle(params: {
 }): { blocks: Block[]; seed: number; steps: number } {
   const { difficulty, gameIndex } = params
   const seed = params.seed >>> 0
-  const rnd = mulberry32(seed)
+  const desired = desiredSolutionRange(difficulty, gameIndex)
+  const baseSteps = shuffleStepsForDifficulty(difficulty, gameIndex)
 
-  const blocks = createSolvedBlocks()
-  const steps = shuffleStepsForDifficulty(difficulty, gameIndex)
+  const maxAttempts = 18
+  let bestBlocks = createSolvedBlocks()
+  let bestSteps = baseSteps
+  let bestLen = Number.POSITIVE_INFINITY
 
-  let lastMove: Move | null = null
-  let tries = 0
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const rnd = mulberry32((seed + attempt * 0x9e3779b9) >>> 0)
+    const blocks = createSolvedBlocks()
+    const steps = baseSteps + Math.floor(rnd() * 10) - 5
 
-  for (let i = 0; i < steps; i++) {
-    const all = getPossibleMoves(blocks)
-    const prev = lastMove
-    const filtered: Move[] =
-      prev === null
-        ? all
-        : all.filter((m) => !(m.id === prev.id && m.dir === oppositeDir(prev.dir)))
-    const chosen: Move = pickOne(filtered.length > 0 ? filtered : all, rnd)
-    tryApplyMove(blocks, chosen)
-    lastMove = chosen
-    tries++
-    if (tries > steps * 10) break
-  }
-
-  if (isSolved(blocks)) {
-    for (let i = 0; i < 8; i++) {
-      const chosen = pickOne(getPossibleMoves(blocks), rnd)
+    let lastMove: Move | null = null
+    for (let i = 0; i < Math.max(1, steps); i++) {
+      const all = getPossibleMoves(blocks)
+      const prev = lastMove
+      const filtered: Move[] =
+        prev === null
+          ? all
+          : all.filter((m) => !(m.id === prev.id && m.dir === oppositeDir(prev.dir)))
+      const chosen: Move = pickOne(filtered.length > 0 ? filtered : all, rnd)
       tryApplyMove(blocks, chosen)
-      if (!isSolved(blocks)) break
+      lastMove = chosen
+    }
+
+    if (isSolved(blocks)) continue
+
+    const sol = findShortestSolution(blocks, { maxNodes: 26000, maxDepth: 140 })
+    if (!sol) continue
+    const len = sol.length
+
+    if (len < bestLen) {
+      bestLen = len
+      bestBlocks = blocks
+      bestSteps = steps
+    }
+
+    if (len >= desired.min && len <= desired.max) {
+      return { blocks, seed, steps }
     }
   }
 
-  return { blocks, seed, steps }
+  if (!isSolved(bestBlocks)) return { blocks: bestBlocks, seed, steps: bestSteps }
+  const fallback = createSolvedBlocks()
+  const sol = findShortestSolution(fallback, { maxNodes: 2000, maxDepth: 4 })
+  if (sol && sol.length === 0) {
+    const rnd = mulberry32((seed + 0x2c1b3c6d) >>> 0)
+    for (let i = 0; i < 6; i++) tryApplyMove(fallback, pickOne(getPossibleMoves(fallback), rnd))
+  }
+  return { blocks: fallback, seed, steps: bestSteps }
 }
 
 export function findShortestSolution(
