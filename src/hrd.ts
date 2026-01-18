@@ -34,18 +34,18 @@ export const GRID_ROWS = 5
 const GOAL_X = 1
 const GOAL_Y = 3
 
-export function createSolvedBlocks(): Block[] {
+export function createStartBlocks(): Block[] {
   return [
-    { id: 'cc', kind: 'main', w: 2, h: 2, x: 1, y: 3 },
+    { id: 'cc', kind: 'main', w: 2, h: 2, x: 1, y: 0 },
     { id: 'v1', kind: 'v', w: 1, h: 2, x: 0, y: 0 },
     { id: 'v2', kind: 'v', w: 1, h: 2, x: 3, y: 0 },
     { id: 'v3', kind: 'v', w: 1, h: 2, x: 0, y: 2 },
     { id: 'v4', kind: 'v', w: 1, h: 2, x: 3, y: 2 },
     { id: 'h1', kind: 'h', w: 2, h: 1, x: 1, y: 2 },
-    { id: 's1', kind: 's', w: 1, h: 1, x: 1, y: 0 },
-    { id: 's2', kind: 's', w: 1, h: 1, x: 2, y: 0 },
-    { id: 's3', kind: 's', w: 1, h: 1, x: 1, y: 1 },
-    { id: 's4', kind: 's', w: 1, h: 1, x: 2, y: 1 },
+    { id: 's1', kind: 's', w: 1, h: 1, x: 1, y: 3 },
+    { id: 's2', kind: 's', w: 1, h: 1, x: 2, y: 3 },
+    { id: 's3', kind: 's', w: 1, h: 1, x: 1, y: 4 },
+    { id: 's4', kind: 's', w: 1, h: 1, x: 2, y: 4 },
   ]
 }
 
@@ -196,7 +196,7 @@ export function generatePuzzle(params: {
   const seed = params.seed >>> 0
   const rnd = mulberry32(seed)
 
-  const blocks = createSolvedBlocks()
+  const blocks = createStartBlocks()
   const steps = shuffleStepsForDifficulty(difficulty, gameIndex)
 
   let lastMove: Move | null = null
@@ -216,11 +216,11 @@ export function generatePuzzle(params: {
     if (tries > steps * 10) break
   }
 
-  if (isSolved(blocks)) {
-    for (let i = 0; i < 5; i++) {
-      const chosen = pickOne(getPossibleMoves(blocks), rnd)
-      tryApplyMove(blocks, chosen)
-    }
+  let safety = 0
+  while (isSolved(blocks) && safety < 30) {
+    const chosen = pickOne(getPossibleMoves(blocks), rnd)
+    tryApplyMove(blocks, chosen)
+    safety++
   }
 
   return { blocks, seed, steps }
