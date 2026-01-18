@@ -220,6 +220,11 @@ body {
   display: none;
 }
 
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 8px 16px rgba(40, 10, 30, 0.1);
+}
+
 .btn-toggle {
   background: rgba(255, 255, 255, 0.7);
 }

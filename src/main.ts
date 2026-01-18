@@ -22,6 +22,7 @@ type UiRefs = {
   fxCanvas: HTMLCanvasElement
   winOverlay: HTMLDivElement
   rotateOverlay: HTMLDivElement
+  btnTiaoguoRotate: HTMLButtonElement
   hintArrow: HTMLDivElement
   movesEl: HTMLDivElement
   gameEl: HTMLDivElement
@@ -122,6 +123,7 @@ function createLayout(app: HTMLElement): UiRefs {
         <div class="overlay-card">
           <div class="overlay-big">↻</div>
           <div class="overlay-sub">qing hengping</div>
+          <button id="btnTiaoguoRotate" class="btn btn-small btn-ghost" type="button">tiaoguo</button>
         </div>
       </div>
 
@@ -140,6 +142,7 @@ function createLayout(app: HTMLElement): UiRefs {
     fxCanvas: app.querySelector('#fxCanvas')!,
     winOverlay: app.querySelector('#winOverlay')!,
     rotateOverlay: app.querySelector('#rotateOverlay')!,
+    btnTiaoguoRotate: app.querySelector('#btnTiaoguoRotate')!,
     hintArrow: app.querySelector('#hintArrow')!,
     movesEl: app.querySelector('#movesValue')!,
     gameEl: app.querySelector('#gameValue')!,
@@ -322,6 +325,7 @@ function main(): void {
   const fireworks = createFireworks(refs.fxCanvas)
 
   let state: AppState = loadInitialState()
+  let rotateDismissed = false
 
   const blockEls = new Map<BlockId, HTMLDivElement>()
   let cell = 80
@@ -364,7 +368,8 @@ function main(): void {
     cell = setBoardSizeVars(refs.board)
     updateBlockPositions()
     fireworks.resize()
-    refs.rotateOverlay.classList.toggle('hidden', !shouldShowRotateOverlay())
+    const showRotate = shouldShowRotateOverlay() && !rotateDismissed && !state.celebrating
+    refs.rotateOverlay.classList.toggle('hidden', !showRotate)
   }
 
   function setCelebrating(on: boolean): void {
@@ -465,6 +470,10 @@ function main(): void {
   refs.btnNanduUp.addEventListener('click', () => void ensureAudio().then(() => setDifficulty(state.difficulty + 1)))
   refs.btnJizhu.addEventListener('click', () => void ensureAudio().then(() => setRemember(!state.remember)))
   refs.btnXiaYiJu.addEventListener('click', () => void ensureAudio().then(nextPuzzle))
+  refs.btnTiaoguoRotate.addEventListener('click', () => {
+    rotateDismissed = true
+    resize()
+  })
 
   window.addEventListener('resize', resize)
   window.addEventListener('orientationchange', resize)
@@ -661,6 +670,8 @@ function main(): void {
 
   syncTopUi()
   resize()
+  requestAnimationFrame(resize)
+  window.setTimeout(resize, 300)
   rebuildBlocks()
   afterMove()
 }
