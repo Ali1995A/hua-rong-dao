@@ -81,6 +81,7 @@ function createLayout(app: HTMLElement): UiRefs {
           <div class="board-wrap">
             <div id="board" class="board" aria-label="hua rong dao">
               <canvas id="fxCanvas" class="fx-canvas"></canvas>
+              <div class="grid" aria-hidden="true"></div>
               <div class="goal" aria-hidden="true"></div>
               <div id="hintArrow" class="hint-arrow hidden" aria-hidden="true"></div>
             </div>
@@ -187,7 +188,7 @@ function applyBlockVars(el: HTMLElement, block: Block, cell: number): void {
   el.style.setProperty('--oy', `0px`)
 }
 
-function setBoardSizeVars(board: HTMLElement): number {
+function setBoardSizeVars(board: HTMLElement): { cell: number; gx: number; gy: number } {
   const parent = board.parentElement ?? board
   const rect = parent.getBoundingClientRect()
   const padding = 8
@@ -198,9 +199,13 @@ function setBoardSizeVars(board: HTMLElement): number {
   board.style.setProperty('--cell', `${cell}px`)
   board.style.setProperty('--bw', `${cell * GRID_COLS}px`)
   board.style.setProperty('--bh', `${cell * GRID_ROWS}px`)
-  ;(board as HTMLDivElement).style.width = `${cell * GRID_COLS}px`
-  ;(board as HTMLDivElement).style.height = `${cell * GRID_ROWS}px`
-  return cell
+  const gx = Math.floor((rect.width - cell * GRID_COLS) / 2)
+  const gy = Math.floor((rect.height - cell * GRID_ROWS) / 2)
+  const safeGx = Math.max(0, gx)
+  const safeGy = Math.max(0, gy)
+  board.style.setProperty('--gx', `${safeGx}px`)
+  board.style.setProperty('--gy', `${safeGy}px`)
+  return { cell, gx: safeGx, gy: safeGy }
 }
 
 function shouldShowRotateOverlay(): boolean {
@@ -218,13 +223,20 @@ function moveToDir(dx: number, dy: number): Direction | null {
   return dy > 0 ? 'down' : 'up'
 }
 
-function showHintArrow(refs: UiRefs, move: Move, cell: number, blocks: Block[]): void {
+function showHintArrow(
+  refs: UiRefs,
+  move: Move,
+  cell: number,
+  gx: number,
+  gy: number,
+  blocks: Block[],
+): void {
   const block = blocks.find((b) => b.id === move.id)
   if (!block) return
   const arrow = refs.hintArrow
 
-  const baseX = block.x * cell
-  const baseY = block.y * cell
+  const baseX = gx + block.x * cell
+  const baseY = gy + block.y * cell
   const w = block.w * cell
   const h = block.h * cell
 
@@ -361,6 +373,8 @@ function main(): void {
 
   const blockEls = new Map<BlockId, HTMLDivElement>()
   let cell = 80
+  let gx = 0
+  let gy = 0
 
   function syncTopUi(): void {
     refs.movesEl.textContent = String(state.moves)
@@ -397,7 +411,10 @@ function main(): void {
   }
 
   function resize(): void {
-    cell = setBoardSizeVars(refs.board)
+    const sized = setBoardSizeVars(refs.board)
+    cell = sized.cell
+    gx = sized.gx
+    gy = sized.gy
     updateBlockPositions()
     fireworks.resize()
     const showRotate = shouldShowRotateOverlay() && !rotateDismissed && !state.celebrating
@@ -488,7 +505,7 @@ function main(): void {
     const movable = new Set<BlockId>(moves.map((m) => m.id))
     for (const [id, el] of blockEls.entries()) el.classList.toggle('block-hint', movable.has(id))
 
-    showHintArrow(refs, moves[Math.floor(Math.random() * moves.length)]!, cell, state.blocks)
+    showHintArrow(refs, moves[Math.floor(Math.random() * moves.length)]!, cell, gx, gy, state.blocks)
     window.setTimeout(() => {
       for (const el of blockEls.values()) el.classList.remove('block-hint')
       hideHintArrow(refs)
