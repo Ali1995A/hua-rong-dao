@@ -6,6 +6,7 @@ import {
   GRID_ROWS,
   blocksToKey,
   generatePuzzle,
+  findShortestSolution,
   getPossibleDirs,
   getPossibleMoves,
   isSolved,
@@ -91,17 +92,17 @@ function createLayout(app: HTMLElement): UiRefs {
 
         <div class="panel">
           <button id="btnKaishi" class="btn btn-primary" type="button" data-icon="▶">
-            kaishi
+            kai shi
           </button>
           <button id="btnChongzhi" class="btn" type="button" data-icon="↺">
-            chongzhi
+            chong zhi
           </button>
           <button id="btnTishi" class="btn" type="button" data-icon="★">
-            tishi
+            ti shi
           </button>
 
           <div class="nandu">
-            <div class="nandu-title">nandu</div>
+            <div class="nandu-title">nan du</div>
             <div class="nandu-row">
               <button id="btnNanduDown" class="btn btn-small" type="button" aria-label="nandu down">−</button>
               <div id="nanduValue" class="nandu-value" aria-label="nandu value">1</div>
@@ -117,7 +118,7 @@ function createLayout(app: HTMLElement): UiRefs {
           </div>
 
           <button id="btnJizhu" class="btn btn-toggle" type="button" aria-pressed="false" data-icon="☁">
-            jizhu
+            ji zhu
           </button>
         </div>
       </div>
@@ -125,7 +126,7 @@ function createLayout(app: HTMLElement): UiRefs {
       <div id="rotateOverlay" class="overlay overlay-rotate hidden" role="dialog" aria-label="rotate">
         <div class="overlay-card">
           <div class="overlay-big">↻</div>
-          <div class="overlay-sub">qing hengping</div>
+          <div class="overlay-sub">qing heng ping</div>
           <button id="btnTiaoguoRotate" class="btn btn-small btn-ghost" type="button">tiaoguo</button>
         </div>
       </div>
@@ -134,7 +135,7 @@ function createLayout(app: HTMLElement): UiRefs {
         <div class="overlay-card win-card">
           <div class="win-title">ya!</div>
           <div class="win-sub">hao bang</div>
-          <button id="btnXiaYiJu" class="btn btn-primary" type="button" data-icon="➜">xiayiju</button>
+          <button id="btnXiaYiJu" class="btn btn-primary" type="button" data-icon="➜">xia yi ju</button>
         </div>
       </div>
     </div>
@@ -500,15 +501,18 @@ function main(): void {
 
   function runHint(): void {
     if (state.celebrating) return
-    const moves = getPossibleMoves(state.blocks)
-    if (moves.length === 0) return
+    const solution = findShortestSolution(state.blocks, { maxNodes: 22000, maxDepth: 90 })
+    const next = solution && solution.length > 0 ? solution[0] : null
+    const fallback = getPossibleMoves(state.blocks).find((m) => m.id === 'cc') ?? getPossibleMoves(state.blocks)[0]
+    const move = next ?? fallback
+    if (!move) return
 
     hideHintArrow(refs)
+    for (const el of blockEls.values()) el.classList.remove('block-hint')
 
-    const movable = new Set<BlockId>(moves.map((m) => m.id))
-    for (const [id, el] of blockEls.entries()) el.classList.toggle('block-hint', movable.has(id))
-
-    showHintArrow(refs, moves[Math.floor(Math.random() * moves.length)]!, cell, gx, gy, state.blocks)
+    const el = blockEls.get(move.id)
+    if (el) el.classList.add('block-hint')
+    showHintArrow(refs, move, cell, gx, gy, state.blocks)
     window.setTimeout(() => {
       for (const el of blockEls.values()) el.classList.remove('block-hint')
       hideHintArrow(refs)

@@ -33,18 +33,18 @@ export const GRID_ROWS = 4
 
 export const GOAL = { x: 3, y: 1 } as const
 
-export function createStartBlocks(): Block[] {
+export function createSolvedBlocks(): Block[] {
   return [
-    { id: 'cc', kind: 'main', w: 2, h: 2, x: 0, y: 1 },
-    { id: 'v1', kind: 'v', w: 2, h: 1, x: 0, y: 3 },
+    { id: 'cc', kind: 'main', w: 2, h: 2, x: GOAL.x, y: GOAL.y },
+    { id: 'v1', kind: 'v', w: 2, h: 1, x: 0, y: 1 },
     { id: 'v2', kind: 'v', w: 2, h: 1, x: 0, y: 0 },
-    { id: 'v3', kind: 'v', w: 2, h: 1, x: 2, y: 3 },
-    { id: 'v4', kind: 'v', w: 2, h: 1, x: 2, y: 0 },
+    { id: 'v3', kind: 'v', w: 2, h: 1, x: 0, y: 2 },
+    { id: 'v4', kind: 'v', w: 2, h: 1, x: 3, y: 0 },
     { id: 'h1', kind: 'h', w: 1, h: 2, x: 2, y: 1 },
-    { id: 's1', kind: 's', w: 1, h: 1, x: 3, y: 2 },
-    { id: 's2', kind: 's', w: 1, h: 1, x: 3, y: 1 },
-    { id: 's3', kind: 's', w: 1, h: 1, x: 4, y: 2 },
-    { id: 's4', kind: 's', w: 1, h: 1, x: 4, y: 1 },
+    { id: 's1', kind: 's', w: 1, h: 1, x: 2, y: 0 },
+    { id: 's2', kind: 's', w: 1, h: 1, x: 0, y: 3 },
+    { id: 's3', kind: 's', w: 1, h: 1, x: 1, y: 3 },
+    { id: 's4', kind: 's', w: 1, h: 1, x: 2, y: 3 },
   ]
 }
 
@@ -181,10 +181,9 @@ function pickOne<T>(items: T[], rnd: () => number): T {
 
 function shuffleStepsForDifficulty(difficulty: number, gameIndex: number): number {
   const clamped = Math.min(5, Math.max(1, Math.floor(difficulty)))
-  const base = [1, 12, 26, 42, 62][clamped - 1]!
-  const growth = clamped === 1 ? 1 : 3
-  const cap = clamped === 1 ? 20 : 60
-  const extra = Math.min(cap, Math.max(0, gameIndex) * growth)
+  if (clamped === 1) return 1 + Math.min(2, Math.max(0, gameIndex))
+  const base = [0, 10, 22, 36, 54][clamped - 1]!
+  const extra = Math.min(60, Math.max(0, gameIndex) * 3)
   return base + extra
 }
 
@@ -197,7 +196,7 @@ export function generatePuzzle(params: {
   const seed = params.seed >>> 0
   const rnd = mulberry32(seed)
 
-  const blocks = createStartBlocks()
+  const blocks = createSolvedBlocks()
   const steps = shuffleStepsForDifficulty(difficulty, gameIndex)
 
   let lastMove: Move | null = null
@@ -226,4 +225,78 @@ export function generatePuzzle(params: {
   }
 
   return { blocks, seed, steps }
+}
+
+export function findShortestSolution(
+  start: Block[],
+  params?: { maxNodes?: number; maxDepth?: number },
+): Move[] | null {
+  if (isSolved(start)) return []
+
+  const maxNodes = Math.max(1, params?.maxNodes ?? 35000)
+  const maxDepth = Math.max(1, params?.maxDepth ?? 140)
+
+  const startKey = blocksToKey(start)
+
+  type Parent = { prev: string; move: Move; depth: number }
+  const parent = new Map<string, Parent>()
+  const visited = new Set<string>()
+  visited.add(startKey)
+
+  const queue: { key: string; blocks: Block[]; depth: number }[] = [
+    { key: startKey, blocks: cloneBlocks(start), depth: 0 },
+  ]
+  let qi = 0
+
+  function scoreMove(m: Move, blocks: Block[]): number {
+    const b = blocks.find((x) => x.id === m.id)
+    if (!b) return 0
+    const isCc = m.id === 'cc'
+    const toward =
+      m.dir === 'right'
+        ? 3
+        : m.dir === 'down'
+          ? 1
+          : m.dir === 'left'
+            ? -1
+            : -2
+    const closerX = isCc ? Math.sign(GOAL.x - b.x) : 0
+    const closerY = isCc ? Math.sign(GOAL.y - b.y) : 0
+    const dirScore =
+      (m.dir === 'right' ? 1 : m.dir === 'left' ? -1 : 0) * closerX +
+      (m.dir === 'down' ? 1 : m.dir === 'up' ? -1 : 0) * closerY
+    return (isCc ? 100 : 0) + toward * 2 + dirScore * 5
+  }
+
+  while (qi < queue.length && visited.size < maxNodes) {
+    const cur = queue[qi++]!
+    if (cur.depth >= maxDepth) continue
+
+    const moves = getPossibleMoves(cur.blocks)
+    moves.sort((a, b) => scoreMove(b, cur.blocks) - scoreMove(a, cur.blocks))
+
+    for (const move of moves) {
+      const nextBlocks = cloneBlocks(cur.blocks)
+      if (!tryApplyMove(nextBlocks, move)) continue
+      const k = blocksToKey(nextBlocks)
+      if (visited.has(k)) continue
+      visited.add(k)
+      parent.set(k, { prev: cur.key, move, depth: cur.depth + 1 })
+      if (isSolved(nextBlocks)) {
+        const path: Move[] = []
+        let at = k
+        while (at !== startKey) {
+          const p = parent.get(at)
+          if (!p) break
+          path.push(p.move)
+          at = p.prev
+        }
+        path.reverse()
+        return path
+      }
+      queue.push({ key: k, blocks: nextBlocks, depth: cur.depth + 1 })
+    }
+  }
+
+  return null
 }
