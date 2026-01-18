@@ -190,7 +190,7 @@ function applyBlockVars(el: HTMLElement, block: Block, cell: number): void {
 function setBoardSizeVars(board: HTMLElement): number {
   const parent = board.parentElement ?? board
   const rect = parent.getBoundingClientRect()
-  const padding = Math.min(28, Math.max(10, Math.floor(Math.min(rect.width, rect.height) * 0.03)))
+  const padding = 8
   const cell = Math.max(
     44,
     Math.floor(Math.min((rect.width - padding * 2) / GRID_COLS, (rect.height - padding * 2) / GRID_ROWS)),
