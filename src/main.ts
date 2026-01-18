@@ -81,6 +81,7 @@ function createLayout(app: HTMLElement): UiRefs {
           <div class="board-wrap">
             <div id="board" class="board" aria-label="hua rong dao">
               <canvas id="fxCanvas" class="fx-canvas"></canvas>
+              <div class="goal" aria-hidden="true"></div>
               <div id="hintArrow" class="hint-arrow hidden" aria-hidden="true"></div>
             </div>
           </div>
