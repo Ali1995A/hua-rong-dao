@@ -344,6 +344,19 @@ function main(): void {
   const fireworks = createFireworks(refs.fxCanvas)
 
   let state: AppState = loadInitialState()
+  if (isSolved(state.blocks)) {
+    const seed = newSeed()
+    const { blocks } = generatePuzzle({ difficulty: state.difficulty, gameIndex: state.gameIndex, seed })
+    state = {
+      ...state,
+      seed,
+      startedAt: Date.now(),
+      moves: 0,
+      blocks,
+      startKey: blocksToKey(blocks),
+      celebrating: false,
+    }
+  }
   let rotateDismissed = false
 
   const blockEls = new Map<BlockId, HTMLDivElement>()
