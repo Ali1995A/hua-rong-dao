@@ -666,8 +666,6 @@ function main(): void {
           playMoveTick()
           afterMove()
         }
-      } else {
-        void runHint()
       }
     }
 
