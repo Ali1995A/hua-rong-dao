@@ -33,18 +33,18 @@ export const GRID_ROWS = 4
 
 export const GOAL = { x: 3, y: 1 } as const
 
-export function createSolvedBlocks(): Block[] {
+export function createBaseBlocks(): Block[] {
   return [
-    { id: 'cc', kind: 'main', w: 2, h: 2, x: GOAL.x, y: GOAL.y },
-    { id: 'v1', kind: 'v', w: 2, h: 1, x: 0, y: 1 },
+    { id: 'cc', kind: 'main', w: 2, h: 2, x: 2, y: 1 },
+    { id: 'h1', kind: 'h', w: 1, h: 2, x: 0, y: 1 },
     { id: 'v2', kind: 'v', w: 2, h: 1, x: 0, y: 0 },
-    { id: 'v3', kind: 'v', w: 2, h: 1, x: 0, y: 2 },
-    { id: 'v4', kind: 'v', w: 2, h: 1, x: 3, y: 0 },
-    { id: 'h1', kind: 'h', w: 1, h: 2, x: 2, y: 1 },
-    { id: 's1', kind: 's', w: 1, h: 1, x: 2, y: 0 },
-    { id: 's2', kind: 's', w: 1, h: 1, x: 0, y: 3 },
-    { id: 's3', kind: 's', w: 1, h: 1, x: 1, y: 3 },
-    { id: 's4', kind: 's', w: 1, h: 1, x: 2, y: 3 },
+    { id: 'v4', kind: 'v', w: 2, h: 1, x: 2, y: 0 },
+    { id: 'v1', kind: 'v', w: 2, h: 1, x: 0, y: 3 },
+    { id: 'v3', kind: 'v', w: 2, h: 1, x: 2, y: 3 },
+    { id: 's1', kind: 's', w: 1, h: 1, x: 4, y: 0 },
+    { id: 's2', kind: 's', w: 1, h: 1, x: 4, y: 3 },
+    { id: 's3', kind: 's', w: 1, h: 1, x: 1, y: 1 },
+    { id: 's4', kind: 's', w: 1, h: 1, x: 1, y: 2 },
   ]
 }
 
@@ -105,10 +105,10 @@ function desiredSolutionRange(difficulty: number, gameIndex: number): { min: num
     const max = 8 + Math.min(4, g)
     return { min, max }
   }
-  if (d === 2) return { min: 10, max: 18 }
-  if (d === 3) return { min: 18, max: 30 }
-  if (d === 4) return { min: 28, max: 44 }
-  return { min: 40, max: 70 }
+  if (d === 2) return { min: 12, max: 22 }
+  if (d === 3) return { min: 20, max: 32 }
+  if (d === 4) return { min: 32, max: 40 }
+  return { min: 40, max: 46 }
 }
 
 function ccDistanceToGoal(blocks: Block[]): number {
@@ -224,22 +224,26 @@ export function generatePuzzle(params: {
 
   const d = Math.min(5, Math.max(1, Math.floor(difficulty)))
   const minDist = minGoalDistanceForDifficulty(d)
+  const strictMin = d <= 4
 
-  const maxAttempts = 18
-  let bestBlocks = createSolvedBlocks()
+  const maxAttempts = d === 1 ? 18 : d === 2 ? 40 : d === 3 ? 52 : d === 4 ? 64 : 220
+  let bestBlocks = createBaseBlocks()
   let bestSteps = baseSteps
-  let bestLen = Number.POSITIVE_INFINITY
+  let bestError = Number.POSITIVE_INFINITY
+  let bestLen = -1
   let bestDist = -1
-  let bestFallbackBlocks: Block[] | null = null
+  let bestAnyBlocks = createBaseBlocks()
+  let bestAnyLen = Number.POSITIVE_INFINITY
+  let bestAnyDist = -1
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const rnd = mulberry32((seed + attempt * 0x9e3779b9) >>> 0)
-    const blocks = createSolvedBlocks()
-    const steps = baseSteps + Math.floor(rnd() * 10) - 5
+  const targetLen = Math.round((desired.min + desired.max) / 2)
+  const solveBudget = d === 1 ? 22000 : d === 2 ? 70000 : d === 3 ? 110000 : d === 4 ? 150000 : 200000
 
+  function scramble(blocks: Block[], rnd: () => number, steps: number): void {
     let lastMove: Move | null = null
     for (let i = 0; i < Math.max(1, steps); i++) {
       const all = getPossibleMoves(blocks)
+      if (all.length === 0) break
       const prev = lastMove
       const filtered: Move[] =
         prev === null
@@ -249,42 +253,77 @@ export function generatePuzzle(params: {
       tryApplyMove(blocks, chosen)
       lastMove = chosen
     }
+  }
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const rnd = mulberry32((seed + attempt * 0x9e3779b9) >>> 0)
+    const blocks = createBaseBlocks()
+    const steps = baseSteps + Math.floor(rnd() * (d === 5 ? 64 : 14)) - (d === 5 ? 32 : 7)
+    scramble(blocks, rnd, steps)
 
     if (isSolved(blocks)) continue
     const dist = ccDistanceToGoal(blocks)
     if (dist < minDist) continue
-    bestFallbackBlocks = blocks
 
-    if (d >= 4) {
-      if (dist > bestDist) {
-        bestDist = dist
-        bestBlocks = blocks
-        bestSteps = steps
-      }
-      // For hard modes we avoid heavy solving during generation; distance + scramble depth provides variety.
-      if (dist >= minDist) return { blocks, seed, steps }
-      continue
-    }
-
-    const sol = findShortestSolution(blocks, { maxNodes: 45000, maxDepth: 140 })
-    if (!sol) {
-      if (dist > bestDist) {
-        bestDist = dist
-        bestBlocks = blocks
-        bestSteps = steps
-      }
-      continue
-    }
+    const sol = findShortestSolution(blocks, { maxNodes: solveBudget, maxDepth: 220 })
+    if (!sol) continue
     const len = sol.length
 
-    if (len < bestLen) {
+    if (len < bestAnyLen || (len === bestAnyLen && dist > bestAnyDist)) {
+      bestAnyLen = len
+      bestAnyDist = dist
+      bestAnyBlocks = blocks
+    }
+
+    if (len >= desired.min && len <= desired.max) return { blocks, seed, steps }
+    if (strictMin && len < desired.min) continue
+
+    if (d === 5) {
+      const betterHard = len > bestLen || (len === bestLen && dist > bestDist)
+      if (betterHard) {
+        bestLen = len
+        bestDist = dist
+        bestBlocks = blocks
+        bestSteps = steps
+      }
+      continue
+    }
+
+    const err = Math.abs(len - targetLen)
+    const better =
+      err < bestError ||
+      (err === bestError && dist > bestDist) ||
+      (err === bestError && dist === bestDist && len > bestLen)
+    if (better) {
+      bestError = err
       bestLen = len
+      bestDist = dist
       bestBlocks = blocks
       bestSteps = steps
     }
+  }
 
-    if (len >= desired.min && len <= desired.max) {
-      return { blocks, seed, steps }
+  if (d === 5 && bestLen > 0 && bestLen < desired.min) {
+    const rnd = mulberry32((seed ^ 0xa5a5a5a5) >>> 0)
+    for (let round = 0; round < 120; round++) {
+      const fallback = createBaseBlocks()
+      scramble(fallback, rnd, baseSteps + 120 + round * 8)
+      if (isSolved(fallback)) continue
+      if (ccDistanceToGoal(fallback) < minDist) continue
+      const sol = findShortestSolution(fallback, { maxNodes: solveBudget, maxDepth: 240 })
+      if (!sol) continue
+      const len = sol.length
+      if (len >= desired.min) {
+        bestBlocks = fallback
+        bestSteps = baseSteps + 120 + round * 8
+        bestLen = len
+        break
+      }
+      if (len > bestLen) {
+        bestBlocks = fallback
+        bestSteps = baseSteps + 120 + round * 8
+        bestLen = len
+      }
     }
   }
 
@@ -292,16 +331,33 @@ export function generatePuzzle(params: {
     return { blocks: bestBlocks, seed, steps: bestSteps }
   }
 
-  // Last resort: return a non-solved scrambled board (never return a near-solved fallback).
-  if (bestFallbackBlocks) return { blocks: bestFallbackBlocks, seed, steps: baseSteps }
-
-  const fallback = createSolvedBlocks()
-  const rnd = mulberry32((seed + 0x2c1b3c6d) >>> 0)
-  for (let i = 0; i < Math.max(12, baseSteps); i++) {
-    tryApplyMove(fallback, pickOne(getPossibleMoves(fallback), rnd))
-    if (!isSolved(fallback) && ccDistanceToGoal(fallback) >= minDist) break
+  if (!strictMin && !isSolved(bestAnyBlocks) && ccDistanceToGoal(bestAnyBlocks) >= minDist) {
+    return { blocks: bestAnyBlocks, seed, steps: baseSteps }
   }
-  return { blocks: fallback, seed, steps: baseSteps }
+
+  // Hard fallback: keep scrambling until it is not trivial for this difficulty.
+  const rnd = mulberry32((seed + 0x2c1b3c6d) >>> 0)
+  for (let round = 0; round < 44; round++) {
+    const fallback = createBaseBlocks()
+    const extra = (d === 1 ? 6 : d === 2 ? 18 : d === 3 ? 30 : d === 4 ? 42 : 58) + round * 3
+    scramble(fallback, rnd, baseSteps + extra)
+    if (isSolved(fallback)) continue
+    if (ccDistanceToGoal(fallback) < minDist) continue
+    const sol = findShortestSolution(fallback, { maxNodes: solveBudget, maxDepth: 240 })
+    if (sol && (!strictMin || sol.length >= desired.min)) return { blocks: fallback, seed, steps: baseSteps + extra }
+  }
+
+  // Absolute last resort: return something not solved and not near goal.
+  const last = createBaseBlocks()
+  scramble(last, rnd, baseSteps + 80)
+  if (isSolved(last)) scramble(last, rnd, 40)
+  for (let i = 0; i < 44; i++) {
+    if (isSolved(last) || ccDistanceToGoal(last) < minDist) scramble(last, rnd, 18)
+    const sol = findShortestSolution(last, { maxNodes: solveBudget, maxDepth: 240 })
+    if (sol && (!strictMin || sol.length >= desired.min)) break
+    scramble(last, rnd, 26)
+  }
+  return { blocks: last, seed, steps: baseSteps + 80 }
 }
 
 export function findShortestSolution(
