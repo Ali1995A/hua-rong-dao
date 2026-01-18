@@ -28,24 +28,23 @@ export interface Move {
   dir: Direction
 }
 
-export const GRID_COLS = 4
-export const GRID_ROWS = 5
+export const GRID_COLS = 5
+export const GRID_ROWS = 4
 
-const GOAL_X = 1
-const GOAL_Y = 3
+export const GOAL = { x: 3, y: 1 } as const
 
 export function createStartBlocks(): Block[] {
   return [
-    { id: 'cc', kind: 'main', w: 2, h: 2, x: 1, y: 0 },
-    { id: 'v1', kind: 'v', w: 1, h: 2, x: 0, y: 0 },
-    { id: 'v2', kind: 'v', w: 1, h: 2, x: 3, y: 0 },
-    { id: 'v3', kind: 'v', w: 1, h: 2, x: 0, y: 2 },
-    { id: 'v4', kind: 'v', w: 1, h: 2, x: 3, y: 2 },
-    { id: 'h1', kind: 'h', w: 2, h: 1, x: 1, y: 2 },
-    { id: 's1', kind: 's', w: 1, h: 1, x: 1, y: 3 },
-    { id: 's2', kind: 's', w: 1, h: 1, x: 2, y: 3 },
-    { id: 's3', kind: 's', w: 1, h: 1, x: 1, y: 4 },
-    { id: 's4', kind: 's', w: 1, h: 1, x: 2, y: 4 },
+    { id: 'cc', kind: 'main', w: 2, h: 2, x: 0, y: 1 },
+    { id: 'v1', kind: 'v', w: 2, h: 1, x: 0, y: 3 },
+    { id: 'v2', kind: 'v', w: 2, h: 1, x: 0, y: 0 },
+    { id: 'v3', kind: 'v', w: 2, h: 1, x: 2, y: 3 },
+    { id: 'v4', kind: 'v', w: 2, h: 1, x: 2, y: 0 },
+    { id: 'h1', kind: 'h', w: 1, h: 2, x: 2, y: 1 },
+    { id: 's1', kind: 's', w: 1, h: 1, x: 3, y: 2 },
+    { id: 's2', kind: 's', w: 1, h: 1, x: 3, y: 1 },
+    { id: 's3', kind: 's', w: 1, h: 1, x: 4, y: 2 },
+    { id: 's4', kind: 's', w: 1, h: 1, x: 4, y: 1 },
   ]
 }
 
@@ -55,7 +54,7 @@ export function cloneBlocks(blocks: Block[]): Block[] {
 
 export function isSolved(blocks: Block[]): boolean {
   const cc = blocks.find((b) => b.id === 'cc')
-  return !!cc && cc.x === GOAL_X && cc.y === GOAL_Y
+  return !!cc && cc.x === GOAL.x && cc.y === GOAL.y
 }
 
 export function blocksToKey(blocks: Block[]): string {

@@ -1,6 +1,7 @@
 import './style.css'
 import { ensureAudio, playApplause, playMoveTick } from './audio'
 import {
+  GOAL,
   GRID_COLS,
   GRID_ROWS,
   blocksToKey,
@@ -205,6 +206,8 @@ function setBoardSizeVars(board: HTMLElement): { cell: number; gx: number; gy: n
   const safeGy = Math.max(0, gy)
   board.style.setProperty('--gx', `${safeGx}px`)
   board.style.setProperty('--gy', `${safeGy}px`)
+  board.style.setProperty('--goalx', `${safeGx + GOAL.x * cell}px`)
+  board.style.setProperty('--goaly', `${safeGy + GOAL.y * cell}px`)
   return { cell, gx: safeGx, gy: safeGy }
 }
 

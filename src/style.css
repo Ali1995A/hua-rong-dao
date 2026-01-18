@@ -141,10 +141,12 @@ body {
   overflow: hidden;
   touch-action: none;
   --cell: 90px;
-  --bw: calc(var(--cell) * 4);
-  --bh: calc(var(--cell) * 5);
+  --bw: calc(var(--cell) * 5);
+  --bh: calc(var(--cell) * 4);
   --gx: 0px;
   --gy: 0px;
+  --goalx: 0px;
+  --goaly: 0px;
   border: 2px solid rgba(255, 255, 255, 0.7);
 }
 
@@ -187,8 +189,8 @@ body {
 
 .goal {
   position: absolute;
-  left: calc(var(--gx) + var(--cell) * 1);
-  top: calc(var(--gy) + var(--cell) * 3);
+  left: var(--goalx);
+  top: var(--goaly);
   width: calc(var(--cell) * 2);
   height: calc(var(--cell) * 2);
   border-radius: 26px;
@@ -220,24 +222,24 @@ body {
 }
 
 .goal::after {
-  content: '⤓';
+  content: '➜';
   position: absolute;
-  left: 50%;
-  bottom: -26px;
-  transform: translateX(-50%);
+  top: 50%;
+  right: -28px;
+  transform: translateY(-50%);
   font-size: 30px;
   color: rgba(255, 79, 179, 0.9);
   text-shadow: 0 12px 22px rgba(40, 10, 30, 0.18);
-  animation: goalBounce 720ms ease-in-out infinite;
+  animation: goalBounceX 720ms ease-in-out infinite;
 }
 
-@keyframes goalBounce {
+@keyframes goalBounceX {
   0%,
   100% {
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(-50%) translateX(0);
   }
   50% {
-    transform: translateX(-50%) translateY(4px);
+    transform: translateY(-50%) translateX(4px);
   }
 }
 
