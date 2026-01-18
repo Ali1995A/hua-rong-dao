@@ -344,7 +344,7 @@ function main(): void {
   const fireworks = createFireworks(refs.fxCanvas)
 
   let state: AppState = loadInitialState()
-  if (isSolved(state.blocks)) {
+  for (let i = 0; i < 6 && isSolved(state.blocks); i++) {
     const seed = newSeed()
     const { blocks } = generatePuzzle({ difficulty: state.difficulty, gameIndex: state.gameIndex, seed })
     state = {
@@ -505,6 +505,11 @@ function main(): void {
   refs.btnTiaoguoRotate.addEventListener('click', () => {
     rotateDismissed = true
     resize()
+  })
+  refs.winOverlay.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement | null
+    if (target?.closest('button')) return
+    void ensureAudio().then(nextPuzzle)
   })
 
   window.addEventListener('resize', resize)
